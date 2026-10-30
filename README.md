@@ -81,8 +81,6 @@ flowchart LR
 
 ## Quick start
 
-### Option 1: Docker (recommended)
-
 ```bash
 git clone https://github.com/zainabthaa/scansight.git
 cd scansight
@@ -103,33 +101,6 @@ from your LAN.
 
 > CVE lookups need internet access: the `vulners` script queries vulners.com, and enrichment
 > calls NVD, CISA and FIRST.
-
-### Option 2: Demo mode (no scanning at all)
-
-```bash
-make demo        # or: DEMO_MODE=true docker compose up --build -d backend frontend
-```
-
-### Option 3: Local development
-
-Requirements: Python 3.11+, Node 20+, and Nmap 7.80+ (`brew install nmap` / `apt install nmap`).
-
-```bash
-# Backend
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
-uvicorn app.main:app --reload          # http://localhost:8000/docs
-
-# Frontend (second terminal)
-cd frontend
-npm install
-npm run dev                            # http://localhost:5173
-```
-
-Locally, SYN/UDP/OS scans need raw sockets. Either use **TCP Connect**, or grant nmap the
-capability (`sudo setcap cap_net_raw+eip $(which nmap)` on Linux) and set
-`NMAP_PRIVILEGED=true`.
 
 ## Enabling AI explanations
 
