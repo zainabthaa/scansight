@@ -202,27 +202,6 @@ scansight/
 └── LICENSE
 ```
 
-## API
-
-Interactive docs: **http://localhost:8080/docs** with Docker, or **http://localhost:8000/docs** when running the backend locally.
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/options` | Scan types, timing templates, port presets, allowlist, AI status |
-| `POST` | `/api/scans/preview` | Validate a request and return the explained nmap command |
-| `POST` | `/api/scans` | Start a scan (requires `"authorized": true`) |
-| `GET` | `/api/scans` | Scan history |
-| `GET` | `/api/scans/{id}` | Full scan result |
-| `GET` | `/api/scans/{id}/events` | Live progress (Server-Sent Events) |
-| `DELETE` | `/api/scans/{id}` | Delete a scan |
-| `GET` | `/api/cves/{cve_id}` | NVD + KEV details for a CVE |
-| `POST` | `/api/cves/{cve_id}/explain` | Plain-language AI explanation |
-
-```bash
-curl -X POST localhost:8000/api/scans -H 'Content-Type: application/json' \
-  -d '{"target":"172.28.0.10","technique":"connect","timing":4,"port_preset":"top100","authorized":true}'
-```
-
 ## Testing
 
 ```bash
