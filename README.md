@@ -84,7 +84,7 @@ flowchart LR
 ### Option 1: Docker (recommended)
 
 ```bash
-git clone https://github.com/<your-username>/scansight.git
+git clone https://github.com/zainabthaa/scansight.git
 cd scansight
 cp .env.example .env          # optional: add an AI provider / NVD key
 docker compose up --build -d
