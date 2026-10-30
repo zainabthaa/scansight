@@ -16,6 +16,7 @@ from app.config import Settings
 DEFAULT_MODELS = {
     "anthropic": "claude-haiku-5-5",
     "openai": "gpt-4o-mini",
+    "gemini": "gemini-3.8-flash",
     "ollama": "llama3.1:8b",
 }
 
@@ -93,6 +94,36 @@ class OpenAIProvider(LLMProvider):
         return data["choices"][0]["message"]["content"]
 
 
+class GeminiProvider(LLMProvider):
+    """Google Gemini via the native generateContent REST API (key from Google AI Studio)."""
+
+    name = "gemini"
+    BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+
+    def __init__(self, api_key: str, model: str):
+        super().__init__(model)
+        self.api_key = api_key
+
+    async def complete(self, system: str, user: str) -> str:
+        data = await self._post(
+            f"{self.BASE_URL}/models/{self.model}:generateContent",
+            json={
+                "systemInstruction": {"parts": [{"text": system}]},
+                "contents": [{"role": "user", "parts": [{"text": user}]}],
+                # JSON mode: the model returns a JSON document instead of prose.
+                "generationConfig": {"responseMimeType": "application/json"},
+            },
+            # Sent as a header, not a ?key= query parameter, so it never appears in URLs/logs.
+            headers={"x-goog-api-key": self.api_key},
+        )
+        candidates = data.get("candidates") or []
+        if not candidates:
+            reason = (data.get("promptFeedback") or {}).get("blockReason", "no candidates")
+            raise ProviderError(f"gemini returned no answer ({reason})")
+        parts = (candidates[0].get("content") or {}).get("parts") or []
+        return "".join(p.get("text", "") for p in parts)
+
+
 class OllamaProvider(LLMProvider):
     """Local models via Ollama: free, private, no API key."""
 
@@ -128,6 +159,8 @@ def build_provider(settings: Settings) -> LLMProvider | None:
         return AnthropicProvider(settings.anthropic_api_key, model)
     if provider == "openai" and settings.openai_api_key:
         return OpenAIProvider(settings.openai_api_key, model, settings.openai_base_url)
+    if provider == "gemini" and settings.gemini_api_key:
+        return GeminiProvider(settings.gemini_api_key, model)
     if provider == "ollama":
         return OllamaProvider(settings.ollama_url, model)
     return None

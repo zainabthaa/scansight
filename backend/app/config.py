@@ -40,10 +40,11 @@ class Settings(BaseSettings):
     epss_enabled: bool = True  # FIRST.org EPSS API (free, no key)
 
     # --- AI explanations -----------------------------------------------------------------
-    ai_provider: Literal["none", "anthropic", "openai", "ollama"] = "none"
+    ai_provider: Literal["none", "anthropic", "openai", "gemini", "ollama"] = "none"
     ai_model: str | None = None  # falls back to a sensible per-provider default
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
+    gemini_api_key: str | None = None
     openai_base_url: str = "https://api.openai.com/v1"
     ollama_url: str = "http://localhost:11434"
 

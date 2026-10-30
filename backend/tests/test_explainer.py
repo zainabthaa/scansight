@@ -48,6 +48,40 @@ def test_prompt_wraps_untrusted_data():
     assert '"known_exploited_in_the_wild_cisa_kev": true' in prompt
 
 
+def test_build_provider_gemini():
+    from app.ai.providers import GeminiProvider, build_provider
+    from app.config import Settings
+
+    on = Settings(_env_file=None, ai_provider="gemini", gemini_api_key="k")
+    provider = build_provider(on)
+    assert isinstance(provider, GeminiProvider) and provider.model == "gemini-3.8-flash"
+    assert build_provider(Settings(_env_file=None, ai_provider="gemini")) is None  # no key
+
+
+async def test_gemini_request_and_response(monkeypatch):
+    from app.ai.providers import GeminiProvider, ProviderError
+
+    sent = {}
+
+    async def fake_post(url, json, headers=None):
+        sent.update(url=url, json=json, headers=headers)
+        return {"candidates": [{"content": {"parts": [{"text": '{"a": '}, {"text": "1}"}]}}]}
+
+    provider = GeminiProvider("secret", "gemini-3.8-flash")
+    monkeypatch.setattr(provider, "_post", fake_post)
+    assert await provider.complete("sys", "user") == '{"a": 1}'
+    assert sent["url"].endswith("/models/gemini-3.8-flash:generateContent")
+    assert sent["headers"] == {"x-goog-api-key": "secret"}  # key in a header, not the URL
+    assert sent["json"]["generationConfig"]["responseMimeType"] == "application/json"
+
+    async def blocked(url, json, headers=None):
+        return {"promptFeedback": {"blockReason": "SAFETY"}}
+
+    monkeypatch.setattr(provider, "_post", blocked)
+    with pytest.raises(ProviderError, match="SAFETY"):
+        await provider.complete("sys", "user")
+
+
 async def test_explanations_are_cached(tmp_path):
     db = Database(str(tmp_path / "t.db"))
     await db.init()

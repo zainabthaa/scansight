@@ -37,7 +37,7 @@ explains each one in plain language.
   *exploited in the wild → EPSS → CVSS*, or by EPSS or CVSS alone. A free vulners API key adds
   public-exploit flags.
 - **AI explanations.** Each CVE can be explained in plain language (what it is, impact, who is
-  affected, how to fix it) using **Claude, OpenAI, any OpenAI-compatible API, or a local Ollama
+  affected, how to fix it) using **Claude, Gemini, OpenAI, any OpenAI-compatible API, or a local Ollama
   model**.
 - **Live progress.** Scans run as background jobs and stream progress over Server-Sent Events.
 - **Scan history** stored in SQLite.
@@ -62,7 +62,7 @@ flowchart LR
     E --> KEV[(CISA KEV)]
     E --> EPSS[(FIRST EPSS)]
     A --> AI[AI explainer]
-    AI --> LLM{{Claude / OpenAI / Ollama}}
+    AI --> LLM{{Claude / Gemini / OpenAI / Ollama}}
     A --> DB[(SQLite<br/>history + caches)]
     R -.->|scans| LAB[Practice lab<br/>172.28.0.0/24]
 ```
@@ -109,6 +109,7 @@ Set `AI_PROVIDER` in `.env`:
 | Provider | Settings | Notes |
 |---|---|---|
 | Anthropic Claude | `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY=...` | Defaults to `claude-haiku-5-5` (fast and cheap) |
+| Google Gemini | `AI_PROVIDER=gemini`, `GEMINI_API_KEY=...` | Defaults to `gemini-3.8-flash`. Free tier available in Google AI Studio |
 | OpenAI / compatible | `AI_PROVIDER=openai`, `OPENAI_API_KEY=...`, `AI_MODEL=...` | `OPENAI_BASE_URL` works with Groq, LM Studio, vLLM… |
 | Ollama (local, free) | `AI_PROVIDER=ollama`, `OLLAMA_URL=http://host.docker.internal:11434` | Run `ollama pull llama3.1:8b` first |
 
@@ -133,7 +134,7 @@ All settings are environment variables (see [`.env.example`](.env.example)).
 | `NVD_API_KEY` | — | 50 instead of 5 requests per 30 s ([free key](https://nvd.nist.gov/developers/request-an-api-key)) |
 | `VULNERS_API_KEY` | — | Adds public-exploit flags to vulners findings ([free key](https://vulners.com/userinfo)) |
 | `DEMO_MODE` | `false` | Replay a recorded scan instead of running nmap |
-| `AI_PROVIDER` | `none` | `anthropic`, `openai`, `ollama` or `none` |
+| `AI_PROVIDER` | `none` | `anthropic`, `gemini`, `openai`, `ollama` or `none` |
 
 ## Security design
 
@@ -174,7 +175,7 @@ scansight/
 │   │   │   ├── epss.py         #   FIRST EPSS scores (batched, cached)
 │   │   │   └── enricher.py     #   merges vulners + EPSS + KEV + NVD
 │   │   ├── ai/
-│   │   │   ├── providers.py    #   Anthropic / OpenAI / Ollama behind one interface
+│   │   │   ├── providers.py    #   Anthropic / Gemini / OpenAI / Ollama behind one interface
 │   │   │   └── explainer.py    #   grounded prompt, JSON validation, caching
 │   │   ├── core/
 │   │   │   ├── jobs.py         #   background scan jobs
@@ -205,9 +206,12 @@ scansight/
 ## Testing
 
 ```bash
+make setup    # once: creates backend/.venv with the test tools (and frontend packages if npm exists)
 make test     # pytest: validator, command builder, parser, enrichment, explainer, API
 make lint     # ruff + bandit + TypeScript typecheck
 ```
+
+`make help` lists every command.
 
 ## Limitations
 
