@@ -1,1 +1,1 @@
-"""AI explanations of CVEs, with pluggable LLM providers."""
+"""AI explanations of CVEs, powered by Google Gemini."""

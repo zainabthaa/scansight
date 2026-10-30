@@ -7,7 +7,7 @@ Design choices:
     to treat them as data, not instructions (a basic prompt-injection guard).
   * Defensive scope: the model explains impact and fixes; it is told not to give exploit steps.
   * Structured output: the model returns JSON, which is validated before reaching the UI.
-  * Caching: one explanation per (CVE, provider, model), so repeated clicks cost nothing.
+  * Caching: one explanation per (CVE, model), so repeated clicks cost nothing.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 
-from app.ai.providers import LLMProvider, ProviderError
+from app.ai.gemini import GeminiClient, GeminiError
 from app.core.database import Database
 from app.models import CVE, Explanation
 
@@ -99,7 +99,7 @@ def parse_response(text: str) -> dict:
 
 
 class CVEExplainer:
-    def __init__(self, provider: LLMProvider, db: Database):
+    def __init__(self, provider: GeminiClient, db: Database):
         self.provider = provider
         self.db = db
 
@@ -110,15 +110,17 @@ class CVEExplainer:
             return Explanation(**cached, cached=True)
 
         try:
-            raw = await self.provider.complete(
+            raw, used_model = await self.provider.complete(
                 SYSTEM_PROMPT, build_user_prompt(cve, product, version, port)
             )
-        except ProviderError as exc:
+        except GeminiError as exc:
             raise ExplainerError(str(exc)) from exc
 
         fields = parse_response(raw)
+        # model = whichever model answered (may be a fallback); the cache key stays the
+        # configured main model so a repeat click finds it.
         explanation = Explanation(
-            cve_id=cve.id, provider=self.provider.name, model=self.provider.model, **fields
+            cve_id=cve.id, provider=self.provider.name, model=used_model, **fields
         )
         await self.db.put_explanation(
             cve.id, self.provider.name, self.provider.model,

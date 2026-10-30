@@ -240,7 +240,7 @@ async def explain_cve(request: Request, cve_id: str, body: ExplainRequest) -> Ex
     if state.explainer is None:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "AI explanations are not configured. Set AI_PROVIDER in .env (see README).",
+            "AI explanations are off. Set GEMINI_API_KEY in .env (see README).",
         )
 
     allowed, retry_after = state.ai_limiter.check(

@@ -22,7 +22,6 @@ def settings(tmp_path) -> Settings:
         nvd_enabled=False,
         kev_enabled=False,
         epss_enabled=False,
-        ai_provider="none",
         rate_limit_scans=3,
     )
 

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.ai.explainer import CVEExplainer
-from app.ai.providers import build_provider
+from app.ai.gemini import build_client
 from app.api.routes import router
 from app.config import Settings, get_settings
 from app.core.database import Database
@@ -46,13 +46,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         kev = KEVCatalog(str(data_dir / "kev.json"), enabled=settings.kev_enabled)
         epss = EPSSClient(enabled=settings.epss_enabled)
         enricher = CVEEnricher(nvd, kev, settings.max_cves_enriched, epss=epss)
-        provider = build_provider(settings)
+        gemini = build_client(settings)
 
         app.state.settings = settings
         app.state.db = db
         app.state.allowlist = Allowlist(settings.allowed_target_list, settings.allow_any_target)
         app.state.enricher = enricher
-        app.state.explainer = CVEExplainer(provider, db) if provider else None
+        app.state.explainer = CVEExplainer(gemini, db) if gemini else None
         app.state.manager = ScanManager(settings, db, enricher)
         app.state.scan_limiter = RateLimiter(
             settings.rate_limit_scans, settings.rate_limit_window_seconds
@@ -64,7 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         log.info(
             "ScanSight %s ready (demo=%s, privileged=%s, ai=%s)",
             __version__, settings.demo_mode, settings.nmap_privileged,
-            provider.name if provider else "off",
+            gemini.model if gemini else "off",
         )
         yield
         await app.state.manager.shutdown()

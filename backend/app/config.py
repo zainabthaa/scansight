@@ -1,7 +1,6 @@
 """Application settings, loaded from environment variables (or a .env file)."""
 
 from functools import lru_cache
-from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -39,14 +38,12 @@ class Settings(BaseSettings):
     kev_enabled: bool = True
     epss_enabled: bool = True  # FIRST.org EPSS API (free, no key)
 
-    # --- AI explanations -----------------------------------------------------------------
-    ai_provider: Literal["none", "anthropic", "openai", "gemini", "ollama"] = "none"
-    ai_model: str | None = None  # falls back to a sensible per-provider default
-    anthropic_api_key: str | None = None
-    openai_api_key: str | None = None
-    gemini_api_key: str | None = None
-    openai_base_url: str = "https://api.openai.com/v1"
-    ollama_url: str = "http://localhost:11434"
+    # --- AI explanations (Google Gemini) --------------------------------------------------
+    gemini_api_key: str | None = None  # AI explanations are on when this is set
+    gemini_model: str | None = None  # empty = gemini-3.6-flash
+    # Tried in order when the main model is overloaded, slow or unavailable (comma-separated).
+    gemini_fallback_models: str = "gemini-3.5-flash-lite"
+    gemini_timeout_seconds: int = Field(default=30, ge=5, le=600)  # per model
 
     # --- Storage / server ----------------------------------------------------------------
     database_path: str = "data/scansight.db"

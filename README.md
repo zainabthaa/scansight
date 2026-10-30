@@ -2,17 +2,18 @@
 
 # ScanSight
 
-**Nmap scanning, CVE enrichment and AI explanations, in your browser.**
+**Nmap scanning, CVE enrichment and Google Gemini explanations, in your browser.**
 
 Enter a target, pick a scan type, timing and ports. ScanSight runs Nmap safely, matches every
 detected service version to known CVEs, flags the ones attackers are actively exploiting, and
-explains each one in plain language.
+uses Google Gemini to explain each one in plain language.
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![Nmap](https://img.shields.io/badge/Nmap-7.9x-4B8BBE)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![Gemini](https://img.shields.io/badge/AI-Google%20Gemini-8E75B2?logo=googlegemini&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ![ScanSight results](docs/screenshots/results.png)
@@ -37,8 +38,7 @@ explains each one in plain language.
   *exploited in the wild → EPSS → CVSS*, or by EPSS or CVSS alone. A free vulners API key adds
   public-exploit flags.
 - **AI explanations.** Each CVE can be explained in plain language (what it is, impact, who is
-  affected, how to fix it) using **Claude, Gemini, OpenAI, any OpenAI-compatible API, or a local Ollama
-  model**.
+  affected, how to fix it) using **Google Gemini**.
 - **Live progress.** Scans run as background jobs and stream progress over Server-Sent Events.
 - **Scan history** stored in SQLite.
 - **Practice lab.** Deliberately outdated Apache, nginx and Redis containers on an isolated
@@ -62,7 +62,7 @@ flowchart LR
     E --> KEV[(CISA KEV)]
     E --> EPSS[(FIRST EPSS)]
     A --> AI[AI explainer]
-    AI --> LLM{{Claude / Gemini / OpenAI / Ollama}}
+    AI --> LLM{{Google Gemini}}
     A --> DB[(SQLite<br/>history + caches)]
     R -.->|scans| LAB[Practice lab<br/>172.28.0.0/24]
 ```
@@ -77,14 +77,14 @@ flowchart LR
 4. The XML is parsed into structured data, and `vulners` results become CVE records.
 5. CVEs are enriched with EPSS scores (one batched request), CISA KEV status (refreshed daily) and,
    for the highest-priority ones, NVD details (cached for 7 days).
-6. On request, the AI explainer turns a CVE into a plain-language briefing (cached per CVE).
+6. On request, Google Gemini turns a CVE into a plain-language briefing (cached per CVE).
 
 ## Quick start
 
 ```bash
 git clone https://github.com/zainabthaa/scansight.git
 cd scansight
-cp .env.example .env          # optional: add an AI provider / NVD key
+cp .env.example .env          # optional: add your Gemini / NVD keys
 docker compose up --build -d
 ```
 
@@ -102,16 +102,31 @@ from your LAN.
 > CVE lookups need internet access: the `vulners` script queries vulners.com, and enrichment
 > calls NVD, CISA and FIRST.
 
-## Enabling AI explanations
+## AI explanations with Google Gemini
 
-Set `AI_PROVIDER` in `.env`:
+1. Get a free API key from [Google AI Studio](https://aistudio.google.com/apikey).
+2. Add it to `.env`: `GEMINI_API_KEY=...`
+3. Restart the backend: `docker compose up -d backend`
 
-| Provider | Settings | Notes |
+The badge at the top right changes from **AI: off** to **AI: gemini**. Open any CVE and click
+**✦ Explain in plain language**:
+
+![Gemini explaining CVE-2021-41773](docs/screenshots/ai-explanation.png)
+
+The explanation covers what the flaw is, what an attacker could do, who is affected and how
+to fix it, and shows which Gemini model answered.
+
+| Setting | Default | Notes |
 |---|---|---|
-| Anthropic Claude | `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY=...` | Defaults to `claude-haiku-5-5` (fast and cheap) |
-| Google Gemini | `AI_PROVIDER=gemini`, `GEMINI_API_KEY=...` | Defaults to `gemini-3.8-flash`. Free tier available in Google AI Studio |
-| OpenAI / compatible | `AI_PROVIDER=openai`, `OPENAI_API_KEY=...`, `AI_MODEL=...` | `OPENAI_BASE_URL` works with Groq, LM Studio, vLLM… |
-| Ollama (local, free) | `AI_PROVIDER=ollama`, `OLLAMA_URL=http://host.docker.internal:11434` | Run `ollama pull llama3.1:8b` first |
+| `GEMINI_MODEL` | `gemini-3.6-flash` | Main model; any model your key can use |
+| `GEMINI_FALLBACK_MODELS` | `gemini-3.5-flash-lite` | Tried in order if the main model is overloaded, slow or retired |
+| `GEMINI_TIMEOUT_SECONDS` | `30` | Wait per model before moving on |
+
+Gemini models are sometimes overloaded: in testing, one model hung for over 90 s while another
+answered in 2 s. So each request uses a low "thinking" level for speed, retries a temporary
+error once, then **falls back to the next model**. Each explanation shows which model answered.
+Errors that every model would hit (a bad key, no network) fail straight away, and the key is
+sent in a header, never in the URL.
 
 The explainer is **grounded**: the prompt contains the official NVD description, CVSS and KEV
 data, and the model is told not to go beyond them. Responses are requested as JSON and
@@ -134,7 +149,7 @@ All settings are environment variables (see [`.env.example`](.env.example)).
 | `NVD_API_KEY` | — | 50 instead of 5 requests per 30 s ([free key](https://nvd.nist.gov/developers/request-an-api-key)) |
 | `VULNERS_API_KEY` | — | Adds public-exploit flags to vulners findings ([free key](https://vulners.com/userinfo)) |
 | `DEMO_MODE` | `false` | Replay a recorded scan instead of running nmap |
-| `AI_PROVIDER` | `none` | `anthropic`, `gemini`, `openai`, `ollama` or `none` |
+| `GEMINI_API_KEY` | — | Turns on AI explanations ([free key](https://aistudio.google.com/apikey)) |
 
 ## Security design
 
@@ -175,7 +190,7 @@ scansight/
 │   │   │   ├── epss.py         #   FIRST EPSS scores (batched, cached)
 │   │   │   └── enricher.py     #   merges vulners + EPSS + KEV + NVD
 │   │   ├── ai/
-│   │   │   ├── providers.py    #   Anthropic / Gemini / OpenAI / Ollama behind one interface
+│   │   │   ├── gemini.py       #   Gemini client: JSON mode, model fallback, retries
 │   │   │   └── explainer.py    #   grounded prompt, JSON validation, caching
 │   │   ├── core/
 │   │   │   ├── jobs.py         #   background scan jobs
